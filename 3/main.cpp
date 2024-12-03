@@ -2,8 +2,13 @@
 #include <functional>
 #include <iostream>
 #include <iterator>
-#include <sstream>
 #include <vector>
+
+struct MulInstruction
+{
+  std::pair<int, int> params;
+  bool enabled = true;
+};
 
 std::vector<std::string> read_memory()
 {
@@ -39,20 +44,8 @@ std::pair<int, int> get_mul_params(std::string& memory_line, size_t mul_position
 
   auto first = memory_line.substr(opening_parenthesis + 1, comma_pos - opening_parenthesis - 1);
   auto second = memory_line.substr(comma_pos + 1, closing_parenthesis - comma_pos - 1);
-
-  std::pair<int, int> params;
-  params.first = std::stoi(first);
-  params.second = std::stoi(second);
-  return params;
+  return {std::stoi(first), std::stoi(second)};
 }
-
-struct MulInstruction
-{
-  std::pair<int, int> params;
-  int memory_page = 0;
-  size_t page_position = 0;
-  bool enabled = true;
-};
 
 std::pair<std::string, size_t> find_next_instruction(std::string& memory_line, size_t current_position)
 {
@@ -64,14 +57,12 @@ std::pair<std::string, size_t> find_next_instruction(std::string& memory_line, s
   std::pair<std::string, size_t> p1{"mul", pos1};
   std::pair<std::string, size_t> p2{"do()", pos2};
   std::pair<std::string, size_t> p3{"don't()", pos3};
-  auto ret = std::min({p1, p2, p3}, [](auto l, auto r) { return l.second < r.second; });
-  return ret;
+  return std::min({p1, p2, p3}, [](auto l, auto r) { return l.second < r.second; });
 }
 
 std::vector<MulInstruction> find_mul_instructions(std::vector<std::string>& memory)
 {
   std::vector<MulInstruction> instructions;
-  int memory_page = 0;
   bool enable = true;
   for (auto& mem : memory)
   {
@@ -92,11 +83,10 @@ std::vector<MulInstruction> find_mul_instructions(std::vector<std::string>& memo
       else if (instruction == "mul")
       {
         const auto params = get_mul_params(mem, pos);
-        instructions.emplace_back(params, memory_page, pos, enable);
+        instructions.emplace_back(params, enable);
       }
       lastPos = pos + 1;
     }
-    memory_page += 1;
   }
   return instructions;
 }
@@ -104,10 +94,10 @@ std::vector<MulInstruction> find_mul_instructions(std::vector<std::string>& memo
 int calculate(std::vector<MulInstruction>& instructions)
 {
   int result = 0;
-  for (const auto& instruction : instructions)
+  for (const auto& [params, isEnabled] : instructions)
   {
-    if (instruction.enabled)
-      result += instruction.params.first * instruction.params.second;
+    if (isEnabled)
+      result += params.first * params.second;
   }
   return result;
 }
